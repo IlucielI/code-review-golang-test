@@ -20,6 +20,9 @@
 | `headinj.go` | Header Injection (CRLF) | High | ✅ BLOCKING |
 | `ssrf.go` | SSRF (unvalidated URL fetch) | Medium | ✅ NON-BLOCKING |
 | `traversal.go` | Path Traversal | Medium | ✅ NON-BLOCKING |
+| `jwt_weak.go` | JWT Weak Secret (hardcoded/short) | High | ✅ BLOCKING |
+| `cors_vuln.go` | CORS Misconfiguration (wildcard + credentials) | High | ✅ BLOCKING |
+| `stack_trace.go` | Stack Trace Exposure (error details to client) | Medium | ✅ NON-BLOCKING |
 
 ### ⚠️ Logic & Performance Issues
 
@@ -35,6 +38,10 @@
 | `upload.go` | Resource Leak (unclosed file) | Low | ✅ NON-BLOCKING |
 | `rand.go` | Insecure Random (`math/rand`) | Medium | ✅ NON-BLOCKING |
 | `perms.go` | World-Writable Permissions | Medium | ✅ NON-BLOCKING |
+| `integer_overflow.go` | Integer Overflow (unchecked arithmetic) | Medium | ✅ NON-BLOCKING |
+| `http_timeout.go` | Memory Leak (HTTP client no timeout) | Medium | ✅ NON-BLOCKING |
+| `redos.go` | ReDoS (catastrophic backtracking regex) | Medium | ✅ NON-BLOCKING |
+| `rate_limit.go` | Missing Rate Limiting (auth/API endpoints) | Medium | ✅ NON-BLOCKING |
 
 ### ✅ False Positive Validation (Should NOT be flagged)
 
@@ -59,9 +66,9 @@
 - ✅ `test/agent-trigger-workflow` (merged)
 
 ### Detection Metrics
-- **Total Expected Findings:** 20+
-- **Security Vulnerabilities:** 7 critical
-- **Logic Issues:** 9 medium/low
+- **Total Expected Findings:** 27
+- **Security Vulnerabilities:** 10 critical
+- **Logic Issues:** 13 medium/low
 - **False Positive Tests:** 4 patterns
 
 ### Related PRs (Closed - Merged into #1)
