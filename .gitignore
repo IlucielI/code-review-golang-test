@@ -1,0 +1,5 @@
+code-review-golang-test
+*.exe
+*.test
+*.out
+vendor/
