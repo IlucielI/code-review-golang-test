@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -10,14 +8,14 @@ import (
 	"strings"
 )
 
-// TaskHandler exposes HTTP endpoints for task management.
+// TaskHandler exposes HTTP endpoints for task operations.
 type TaskHandler struct {
-	repo TaskRepository
+	service TaskService
 }
 
-// NewTaskHandler constructs a new TaskHandler with the provided repository.
-func NewTaskHandler(repo TaskRepository) *TaskHandler {
-	return &TaskHandler{repo: repo}
+// NewTaskHandler constructs a new TaskHandler with the provided service.
+func NewTaskHandler(service TaskService) *TaskHandler {
+	return &TaskHandler{service: service}
 }
 
 type createTaskRequest struct {
@@ -36,19 +34,28 @@ type errorResponse struct {
 }
 
 func writeJSON(w http.ResponseWriter, status int, data any) {
+	buf, err := json.Marshal(data)
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		http.Error(w, "failed to encode json response", http.StatusInternalServerError)
+	if _, writeErr := w.Write(buf); writeErr != nil {
+		return
 	}
 }
 
-func generateTaskID() (string, error) {
-	bytes := make([]byte, 8)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
+func parseQueryInt(param string, defaultVal int) int {
+	if param == "" {
+		return defaultVal
 	}
-	return hex.EncodeToString(bytes), nil
+	val, err := strconv.Atoi(param)
+	if err != nil {
+		return defaultVal
+	}
+	return val
 }
 
 // HandleTasks routes requests for collection-level task operations.
@@ -85,10 +92,10 @@ func (h *TaskHandler) HandleTaskByID(w http.ResponseWriter, r *http.Request) {
 
 func (h *TaskHandler) listTasks(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	limit, _ := strconv.Atoi(query.Get("limit"))
-	offset, _ := strconv.Atoi(query.Get("offset"))
+	limit := parseQueryInt(query.Get("limit"), 20)
+	offset := parseQueryInt(query.Get("offset"), 0)
 
-	tasks, err := h.repo.List(r.Context(), limit, offset)
+	tasks, err := h.service.ListTasks(r.Context(), limit, offset)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list tasks"})
 		return
@@ -104,26 +111,12 @@ func (h *TaskHandler) createTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	trimmedTitle := strings.TrimSpace(req.Title)
-	if trimmedTitle == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "title cannot be empty"})
-		return
-	}
-
-	taskID, err := generateTaskID()
+	created, err := h.service.CreateTask(r.Context(), req.Title, req.Description)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to generate task id"})
-		return
-	}
-
-	newTask := Task{
-		ID:          taskID,
-		Title:       trimmedTitle,
-		Description: req.Description,
-	}
-
-	created, err := h.repo.Create(r.Context(), newTask)
-	if err != nil {
+		if errors.Is(err, ErrInvalidTitle) {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "title cannot be empty"})
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create task"})
 		return
 	}
@@ -132,7 +125,7 @@ func (h *TaskHandler) createTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TaskHandler) getTask(w http.ResponseWriter, r *http.Request, id string) {
-	task, err := h.repo.GetByID(r.Context(), id)
+	task, err := h.service.GetTask(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, ErrTaskNotFound) {
 			writeJSON(w, http.StatusNotFound, errorResponse{Error: "task not found"})
@@ -152,16 +145,14 @@ func (h *TaskHandler) updateTask(w http.ResponseWriter, r *http.Request, id stri
 		return
 	}
 
-	trimmedTitle := strings.TrimSpace(req.Title)
-	if trimmedTitle == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "title cannot be empty"})
-		return
-	}
-
-	updated, err := h.repo.Update(r.Context(), id, trimmedTitle, req.Description, req.Status)
+	updated, err := h.service.UpdateTask(r.Context(), id, req.Title, req.Description, req.Status)
 	if err != nil {
 		if errors.Is(err, ErrTaskNotFound) {
 			writeJSON(w, http.StatusNotFound, errorResponse{Error: "task not found"})
+			return
+		}
+		if errors.Is(err, ErrInvalidTitle) {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "title cannot be empty"})
 			return
 		}
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to update task"})
@@ -172,7 +163,7 @@ func (h *TaskHandler) updateTask(w http.ResponseWriter, r *http.Request, id stri
 }
 
 func (h *TaskHandler) deleteTask(w http.ResponseWriter, r *http.Request, id string) {
-	err := h.repo.Delete(r.Context(), id)
+	err := h.service.DeleteTask(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, ErrTaskNotFound) {
 			writeJSON(w, http.StatusNotFound, errorResponse{Error: "task not found"})

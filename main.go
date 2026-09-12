@@ -14,7 +14,8 @@ func main() {
 	defer db.Close()
 
 	taskRepo := NewMemoryTaskRepository()
-	taskHandler := NewTaskHandler(taskRepo)
+	taskService := NewTaskService(taskRepo)
+	taskHandler := NewTaskHandler(taskService)
 
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
