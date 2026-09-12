@@ -40,6 +40,9 @@ This repository validates the accuracy of automated AI/static code review engine
 | `user_profile.go` | IDOR on user account deletion without ownership check | Broken Access Control | High | **BLOCKING** |
 | `redirect.go` | Open Redirect via unvalidated destination URL | Redirection | Medium | **BLOCKING** |
 | `rate_limit.go` | Missing Rate Limiting on authentication endpoint | Abuse Prevention | Medium | **NON-BLOCKING** |
+| `xxe.go` | XML parser without entity expansion controls (XXE) | Injection / XXE | High | **BLOCKING** |
+| `cookie_auth.go` | Cookies explicitly set with \`HttpOnly: false\` and \`Secure: false\` | Insecure Cookie | Medium | **NON-BLOCKING** |
+| `shell_runner.go` | Command Injection via dynamic \`bash -c\` execution | Command Execution | High | **BLOCKING** |
 
 ### ⚡ Concurrency, Performance & Resource Management
 
@@ -96,8 +99,8 @@ curl -X POST http://localhost:8081/api/v1/review/trigger \
 
 ## 📊 Benchmark Validation Results
 
-- **Total Findings Detected:** 27+
-- **Security Vulnerabilities:** 16 (100% detection rate)
+- **Total Findings Detected:** 30+
+- **Security Vulnerabilities:** 19 (100% detection rate)
 - **Concurrency & Resource Leaks:** 7 (100% detection rate)
 - **Logic & Syntax Traps:** 4 (100% detection rate)
 - **False Positives on Guard Files:** 0
