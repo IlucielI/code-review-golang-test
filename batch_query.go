@@ -18,6 +18,21 @@ type ContactStore struct {
 	Pool *sql.DB
 }
 
+// ListUserContactsNPlusOne retrieves contacts with an N+1 query regression (query inside loop).
+func (s *ContactStore) ListUserContactsNPlusOne(ctx context.Context, userIDs []string) ([]UserContact, error) {
+	var contacts []UserContact
+	for _, userID := range userIDs {
+		// N+1 Query: Executing query inside loop instead of batching with ANY($1) or WHERE IN
+		var c UserContact
+		err := s.Pool.QueryRowContext(ctx, "SELECT id, email, phone FROM users WHERE id = $1", userID).Scan(&c.ID, &c.Email, &c.Phone)
+		if err != nil {
+			return nil, err
+		}
+		contacts = append(contacts, c)
+	}
+	return contacts, nil
+}
+
 // ListUserContacts retrieves contacts for multiple user IDs in a single batch query
 // This uses ANY($1) which is PostgreSQL's batch WHERE-IN operator
 func (s *ContactStore) ListUserContacts(ctx context.Context, userIDs []string) ([]UserContact, error) {
